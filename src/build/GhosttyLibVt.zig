@@ -249,9 +249,13 @@ fn initLib(
         lib.bundle_ubsan_rt = false;
 
         if (kind == .static) {
-            // compiler_rt expects ntdll to provide _fltused when libc is
-            // linked, and the Zig standard library uses other NT and kernel32
-            // symbols.
+            if (target.result.abi == .msvc) {
+                // Provide MSVC's stack-protector support without imposing a
+                // particular CRT linkage on consumers.
+                lib.root_module.linkSystemLibrary("BufferOverflowU", .{});
+            }
+
+            // The Zig standard library uses NT and kernel32 symbols.
             lib.root_module.linkSystemLibrary("ntdll", .{});
             lib.root_module.linkSystemLibrary("kernel32", .{});
         }
