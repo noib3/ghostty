@@ -3593,7 +3593,11 @@ pub fn printAttributes(self: *Terminal, buf: []u8) ![]const u8 {
     }
 
     for (attrs[0..i]) |c| {
-        try writer.print(";{c}", .{c});
+        if (c == '4' and pen.flags.underline != .single) {
+            try writer.print(";4:{}", .{@intFromEnum(pen.flags.underline)});
+        } else {
+            try writer.print(";{c}", .{c});
+        }
     }
 
     switch (pen.fg_color) {
@@ -13748,6 +13752,13 @@ test "Terminal: printAttributes" {
         defer t.setAttribute(.unset) catch unreachable;
         const buf = try t.printAttributes(&storage);
         try testing.expectEqualStrings("0;4", buf);
+    }
+
+    {
+        try t.setAttribute(.{ .underline = .curly });
+        defer t.setAttribute(.unset) catch unreachable;
+        const buf = try t.printAttributes(&storage);
+        try testing.expectEqualStrings("0;4:3", buf);
     }
 
     {
