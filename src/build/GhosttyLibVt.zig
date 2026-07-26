@@ -249,6 +249,17 @@ fn initLib(
         lib.bundle_ubsan_rt = false;
 
         if (kind == .static) {
+            if (target.result.abi == .msvc) {
+                const options = b.addOptions();
+                options.addOption(
+                    []const u8,
+                    "buffer_overflow_lib",
+                    try msvcBufferOverflowLib(b, target.result),
+                );
+                zig.vt.addOptions("lib_vt_msvc_link_options", options);
+                zig.vt_c.addOptions("lib_vt_msvc_link_options", options);
+            }
+
             // The Zig standard library uses NT and kernel32 symbols.
             lib.root_module.linkSystemLibrary("ntdll", .{});
             lib.root_module.linkSystemLibrary("kernel32", .{});
@@ -354,6 +365,39 @@ fn initLib(
         .pkg_config = if (pcs) |v| v.shared else null,
         .pkg_config_static = if (pcs) |v| v.static else null,
     };
+}
+
+/// Returns the name used by libghostty-vt's COFF linker directive for the
+/// Windows SDK stack-protector runtime.
+fn msvcBufferOverflowLib(
+    b: *std.Build,
+    target: std.Target,
+) ![]const u8 {
+    // Native Zig executables use MinGW-flavored LLD even when they consume
+    // our MSVC archive. That mode rewrites BufferOverflowU.lib to
+    // libBufferOverflowU.a, which the Windows SDK does not provide. Embed the
+    // detected absolute path so either linker mode opens the actual SDK file.
+    if (comptime builtin.os.tag == .windows) {
+        const libc = try std.zig.LibCInstallation.findNative(
+            b.allocator,
+            b.graph.io,
+            .{
+                .environ_map = &b.graph.environ_map,
+                .target = &target,
+                .verbose = false,
+            },
+        );
+        const lib_dir = libc.kernel32_lib_dir orelse
+            return error.WindowsSdkLibraryNotFound;
+        return b.pathJoin(&.{
+            lib_dir,
+            "BufferOverflowU.lib",
+        });
+    }
+
+    // Cross-built archives retain the portable MSVC library name. Their final
+    // linker is responsible for supplying the Windows SDK library search path.
+    return "BufferOverflowU.lib";
 }
 
 /// Builds a shared Darwin library with Apple's linker.
