@@ -104,7 +104,6 @@ pub fn build(b: *std.Build) !void {
             // -fno-autolink also drops UCRT's /alternatename fallback.
             "-D_Avx2WmemEnabledWeakValue=_Avx2WmemEnabled",
             "-fno-autolink",
-            "-fno-stack-protector",
         });
     }
 

@@ -13,6 +13,9 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 var msvc_fltused: c_int = 1;
+const msvc_buffer_overflow_lib = " /DEFAULTLIB:BufferOverflowU.lib";
+const msvc_buffer_overflow_directive: [msvc_buffer_overflow_lib.len]u8 linksection(".drectve") =
+    msvc_buffer_overflow_lib[0..msvc_buffer_overflow_lib.len].*;
 
 // The public API below reproduces a lot of terminal/main.zig but
 // is separate because (1) we need our root file to be in `src/`
@@ -154,6 +157,13 @@ comptime {
             builtin.link_mode == .static)
         {
             @export(&msvc_fltused, .{ .name = "_fltused" });
+
+            // Keep MSVC's stack protection enabled by asking the final COFF
+            // linker to pull its security-cookie support from the Windows SDK.
+            @export(&msvc_buffer_overflow_directive, .{
+                .name = "ghostty_msvc_buffer_overflow_directive",
+                .linkage = .internal,
+            });
         }
 
         // Force-reference our memset override so its export is
