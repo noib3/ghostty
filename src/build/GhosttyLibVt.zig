@@ -250,9 +250,10 @@ fn initLib(
 
         if (kind == .static) {
             if (target.result.abi == .msvc) {
-                // Provide MSVC's stack-protector support without imposing a
-                // particular CRT linkage on consumers.
-                lib.root_module.linkSystemLibrary("BufferOverflowU", .{});
+                // Zig's compiler runtime doesn't provide MSVC's security
+                // cookie symbols when libc is linked. Disable stack-protector
+                // generation so static consumers don't need BufferOverflowU.
+                lib.root_module.stack_protector = false;
             }
 
             // The Zig standard library uses NT and kernel32 symbols.
