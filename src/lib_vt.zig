@@ -23,6 +23,70 @@ else
 const msvc_buffer_overflow_directive_bytes: [msvc_buffer_overflow_directive.len]u8 linksection(".drectve") =
     msvc_buffer_overflow_directive[0..msvc_buffer_overflow_directive.len].*;
 
+// BufferOverflowU also contains a full Control Flow Guard load configuration.
+// Native Zig executables already get equivalent guard pointer definitions from
+// MinGW, so pulling the SDK copy produces duplicate symbols. Supplying the
+// minimal security-cookie portion here keeps the loader initialization while
+// leaving each final runtime in charge of its own CFG metadata.
+const MsvcLoadConfig32 = extern struct {
+    size: u32,
+    time_date_stamp: u32 = 0,
+    major_version: u16 = 0,
+    minor_version: u16 = 0,
+    global_flags_clear: u32 = 0,
+    global_flags_set: u32 = 0,
+    critical_section_default_timeout: u32 = 0,
+    decommit_free_block_threshold: u32 = 0,
+    decommit_total_free_threshold: u32 = 0,
+    lock_prefix_table: ?*anyopaque = null,
+    maximum_allocation_size: u32 = 0,
+    virtual_memory_threshold: u32 = 0,
+    process_heap_flags: u32 = 0,
+    process_affinity_mask: u32 = 0,
+    csd_version: u16 = 0,
+    dependent_load_flags: u16 = 0,
+    edit_list: ?*anyopaque = null,
+    security_cookie: *usize,
+};
+
+const MsvcLoadConfig64 = extern struct {
+    size: u32,
+    time_date_stamp: u32 = 0,
+    major_version: u16 = 0,
+    minor_version: u16 = 0,
+    global_flags_clear: u32 = 0,
+    global_flags_set: u32 = 0,
+    critical_section_default_timeout: u32 = 0,
+    decommit_free_block_threshold: u64 = 0,
+    decommit_total_free_threshold: u64 = 0,
+    lock_prefix_table: ?*anyopaque = null,
+    maximum_allocation_size: u64 = 0,
+    virtual_memory_threshold: u64 = 0,
+    process_affinity_mask: u64 = 0,
+    process_heap_flags: u32 = 0,
+    csd_version: u16 = 0,
+    dependent_load_flags: u16 = 0,
+    edit_list: ?*anyopaque = null,
+    security_cookie: *usize,
+};
+
+const MsvcLoadConfig = if (@sizeOf(usize) == 8)
+    MsvcLoadConfig64
+else
+    MsvcLoadConfig32;
+const msvc_security_cookie_name = if (builtin.cpu.arch == .x86)
+    "___security_cookie"
+else
+    "__security_cookie";
+const msvc_load_config_name = if (builtin.cpu.arch == .x86)
+    "__load_config_used"
+else
+    "_load_config_used";
+const msvc_load_config: MsvcLoadConfig = .{
+    .size = @sizeOf(MsvcLoadConfig),
+    .security_cookie = @extern(*usize, .{ .name = msvc_security_cookie_name }),
+};
+
 // The public API below reproduces a lot of terminal/main.zig but
 // is separate because (1) we need our root file to be in `src/`
 // so we can access other directories and (2) we may want to withhold
@@ -169,6 +233,10 @@ comptime {
             @export(&msvc_buffer_overflow_directive_bytes, .{
                 .name = "ghostty_msvc_buffer_overflow_directive",
                 .linkage = .internal,
+            });
+            @export(&msvc_load_config, .{
+                .name = msvc_load_config_name,
+                .linkage = .weak,
             });
         }
 
