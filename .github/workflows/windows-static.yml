@@ -1,0 +1,45 @@
+name: Static libghostty-vt
+
+on:
+  push:
+    branches:
+      - ci/windows-static
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-libghostty-vt-windows:
+    name: build-libghostty-vt-windows
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+
+      - name: Test static linking
+        working-directory: example/c-vt-static
+        run: zig build
+
+  example-c-vt-static:
+    name: Example c-vt-static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+
+      - name: Build example
+        working-directory: example/c-vt-static
+        run: zig build
